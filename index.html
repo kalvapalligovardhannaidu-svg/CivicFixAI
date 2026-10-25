@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CivicFixAI | Smart Civic Solutions</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#07111f;--card:#101e30;--cyan:#50e6f0;--blue:#6585ff;--text:#edf5ff;--muted:#a7b7cc;--border:#263951;--green:#35d49a;--red:#ff7185}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+header{position:sticky;top:0;z-index:1000;background:#07111fee;backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:15px 5%;display:flex;justify-content:space-between;align-items:center;gap:15px}
+.logo{font-size:24px;font-weight:800;color:var(--cyan)}
+nav{display:flex;gap:15px;flex-wrap:wrap}
+nav a{color:var(--text);text-decoration:none;font-size:14px}
+nav a:hover{color:var(--cyan)}
+button,.btn{border:0;border-radius:9px;background:linear-gradient(120deg,var(--blue),#168fba);color:white;padding:12px 16px;font-weight:700}
+button:hover,.btn:hover{filter:brightness(1.15)}
+button:disabled{opacity:.55;cursor:wait}
+.secondary{background:#34465e}
+.danger{background:#a8324d}
+main{max-width:1150px;margin:auto;padding:25px 18px}
+.hero{padding:65px 25px;text-align:center;background:radial-gradient(ellipse at top,#163f64,transparent 70%);border:1px solid var(--border);border-radius:22px}
+.hero h1{font-size:clamp(35px,6vw,65px);margin:10px 0;background:linear-gradient(90deg,#fff,var(--cyan),#8c9dff);color:transparent;background-clip:text}
+.hero p{color:var(--muted);line-height:1.8}
+.hero-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:22px}
+.section{margin-top:28px;scroll-margin-top:90px}
+.card{background:linear-gradient(145deg,#122137,#0d192a);border:1px solid var(--border);border-radius:17px;padding:22px;margin-bottom:20px;box-shadow:0 10px 35px #0002}
+h2{margin-top:0;font-size:24px}
+h3{overflow-wrap:anywhere}
+.muted,small{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.stat{padding:18px;background:#12243a;border:1px solid var(--border);border-radius:13px}
+.stat strong{display:block;font-size:30px;color:var(--cyan);margin-top:9px}
+label{display:block;font-weight:700;margin:13px 0 7px}
+input,select,textarea{width:100%;padding:12px;background:#081526;color:var(--text);border:1px solid #344760;border-radius:9px}
+textarea{min-height:115px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid #50e6f066;border-color:var(--cyan)}
+.form-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.message{padding:12px;border-radius:9px;margin-top:12px;overflow-wrap:anywhere;display:none}
+.message.show{display:block}
+.message.ok{background:#123a30;color:#a9ffdc}
+.message.error{background:#421f2b;color:#ffc0c9}
+.message.info{background:#18304b;color:#c4e7ff}
+.badge{display:inline-block;padding:5px 9px;border-radius:20px;background:#273a53;color:#d8e8ff;font-size:12px}
+.badge.high{background:#552637;color:#ffb7c4}
+.badge.medium{background:#55431f;color:#ffdf98}
+.badge.resolved{background:#174a3c;color:#a9ffdc}
+.issue{padding:17px;border:1px solid var(--border);border-radius:12px;margin:13px 0;background:#0b1829;overflow-wrap:anywhere}
+.issue p{line-height:1.6}
+.issue img{max-width:100%;max-height:240px;object-fit:contain;border-radius:10px;margin-top:10px}
+.issue-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.issue-actions select{max-width:190px}
+#map{height:380px;border-radius:12px;z-index:1}
+.hidden{display:none!important}
+footer{text-align:center;padding:30px 15px;border-top:1px solid var(--border);color:var(--muted);margin-top:30px}
+hr{border:0;border-top:1px solid var(--border);margin:20px 0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1}
+#toast{position:fixed;bottom:20px;right:20px;max-width:340px;background:#17324c;color:white;padding:15px;border:1px solid var(--cyan);border-radius:12px;z-index:2000;display:none;box-shadow:0 8px 30px #0006}
+@media(max-width:750px){header{align-items:flex-start;flex-direction:column}nav{gap:12px}.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.hero{padding:40px 15px}main{padding:15px 12px}.card{padding:17px}#map{height:300px}}
+@media(prefers-reduced-motion:no-preference){.hero h1{background-size:200% auto;animation:shine 5s linear infinite}@keyframes shine{to{background-position:200% center}}.card{animation:fadein .5s ease both}@keyframes fadein{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">🏙️ CivicFixAI</div>
+<nav>
+<a href="#report" data-i18n="navReport">Report</a>
+<a href="#track" data-i18n="navTrack">Track</a>
+<a href="#mapSection" data-i18n="navMap">Map</a>
+<a href="#admin" data-i18n="navAdmin">Admin</a>
+</nav>
+<div class="row" style="flex:0">
+<select id="language" aria-label="Language" style="width:auto">
+<option value="en">English</option>
+<option value="te">తెలుగు</option>
+</select>
+</div>
+</header>
+
+<main>
+<section class="hero">
+<span class="badge">SMART CITY • COMMUNITY POWER</span>
+<h1>CivicFixAI</h1>
+<p data-i18n="heroText">Report civic problems, track progress and help build cleaner, safer communities.</p>
+<div class="hero-actions">
+<button onclick="document.getElementById('report').scrollIntoView({behavior:'smooth'})" data-i18n="reportNow">Report a Problem</button>
+<button class="secondary" onclick="document.getElementById('track').scrollIntoView({behavior:'smooth'})" data-i18n="trackNow">Track Complaint</button>
+</div>
+</section>
+
+<section class="section stats">
+<div class="stat"><span data-i18n="total">Total Reports</span><strong id="totalCount">—</strong></div>
+<div class="stat"><span data-i18n="pending">Pending</span><strong id="pendingCount">—</strong></div>
+<div class="stat"><span data-i18n="progress">In Progress</span><strong id="progressCount">—</strong></div>
+<div class="stat"><span data-i18n="resolved">Resolved</span><strong id="resolvedCount">—</strong></div>
+</section>
+
+<section class="section card" id="report">
+<h2 data-i18n="reportTitle">📝 Report a Civic Issue</h2>
+<p class="muted" data-i18n="reportIntro">Explain the issue. You can add a photo and your current location.</p>
+<form id="complaintForm">
+<div class="grid">
+<div>
+<label for="name" data-i18n="yourName">Your Name</label>
+<input id="name" maxlength="100" required autocomplete="name" placeholder="Enter your name">
+</div>
+<div>
+<label for="category" data-i18n="category">Category</label>
+<select id="category" required>
+<option value="" data-i18n="chooseCategory">Choose a category</option>
+<option value="Road">Road</option>
+<option value="Water">Water</option>
+<option value="Garbage">Garbage</option>
+<option value="Streetlight">Streetlight</option>
+<option value="Drainage">Drainage</option>
+<option value="Other">Other</option>
+</select>
+</div>
+</div>
+<label for="description" data-i18n="description">Describe the Problem</label>
+<textarea id="description" maxlength="2000" required placeholder="Describe the issue and where it happened"></textarea>
+<div class="form-buttons">
+<button type="button" id="suggestBtn">🤖 Suggest Category & Priority</button>
+</div>
+<p id="aiSuggestion" class="muted" aria-live="polite"></p>
+<label for="photo" data-i18n="photo">Problem Photo (optional)</label>
+<input type="file" id="photo" accept="image/jpeg,image/png,image/webp">
+<small data-i18n="photoHelp">JPEG, PNG or WebP. Maximum 5 MB.</small>
+<div class="form-buttons">
+<button type="button" id="locationBtn" class="secondary" data-i18n="getLocation">📍 Get My Location</button>
+<button type="button" id="clearLocationBtn" class="secondary" data-i18n="clearLocation">Clear Location</button>
+</div>
+<p id="locationInfo" class="muted" aria-live="polite">Location not added.</p>
+<input id="latitude" type="hidden">
+<input id="longitude" type="hidden">
+<button type="submit" id="submitBtn" style="margin-top:15px" data-i18n="submit">Submit Complaint</button>
+</form>
+<div id="reportMessage" class="message" aria-live="polite"></div>
+</section>
+
+<section class="section card" id="track">
+<h2 data-i18n="trackTitle">🔎 Track Your Complaint</h2>
+<p class="muted" data-i18n="trackIntro">Enter your complaint ID to check its latest status.</p>
+<form id="trackForm">
+<label for="trackId" data-i18n="complaintId">Complaint ID</label>
+<div class="row">
+<input id="trackId" required placeholder="Example: CFAI-12345678">
+<button type="submit" id="trackBtn" data-i18n="trackButton">Track</button>
+</div>
+</form>
+<div id="trackResult" class="message" aria-live="polite"></div>
+</section>
+
+<section class="section card" id="mapSection">
+<h2 data-i18n="mapTitle">🗺️ Community Issue Map</h2>
+<p class="muted" data-i18n="mapIntro">Map markers show the approximate location of reported issues that include coordinates.</p>
+<div id="map"></div>
+<div id="mapMessage" class="message" aria-live="polite"></div>
+</section>
+
+<section class="section card" id="admin">
+<h2 data-i18n="adminTitle">🔐 Admin Dashboard</h2>
+<p class="muted" data-i18n="adminIntro">Sign in with your authorized administrator account.</p>
+<form id="loginForm">
+<label for="email" data-i18n="email">Admin Email</label>
+<input id="email" type="email" autocomplete="username" required>
+<label for="password" data-i18n="password">Password</label>
+<input id="password" type="password" autocomplete="current-password" required>
+<button id="loginBtn" type="submit" data-i18n="login">Login</button>
+</form>
+<div id="loginMessage" class="message" aria-live="polite"></div>
+<div id="dashboard" class="hidden">
+<hr>
+<div class="row">
+<h2 data-i18n="allReports">All Complaints</h2>
+<button type="button" id="refreshBtn" class="secondary" data-i18n="refresh">Refresh</button>
+<button type="button" id="logoutBtn" class="danger" data-i18n="logout">Logout</button>
+</div>
+<div class="grid">
+<div>
+<label for="filterStatus" data-i18n="filterStatus">Filter by status</label>
+<select id="filterStatus">
+<option value="">All statuses</option>
+<option>Pending</option><option>In Progress</option><option>Resolved</option>
+</select>
+</div>
+<div>
+<label for="filterCategory" data-i18n="filterCategory">Filter by category</label>
+<select id="filterCategory">
+<option value="">All categories</option>
+<option>Road</option><option>Water</option><option>Garbage</option>
+<option>Streetlight</option><option>Drainage</option><option>Other</option>
+</select>
+</div>
+</div>
+<label for="searchBox" data-i18n="search">Search complaints</label>
+<input id="searchBox" placeholder="Search ID, name or description">
+<div id="dashboardMessage" class="message" aria-live="polite"></div>
+<div id="complaintsList"></div>
+</div>
+</section>
+</main>
+
+<footer>
+<strong>CivicFixAI</strong><br>
+<p data-i18n="footer">Student Project • Technology for Better Communities</p>
+<small>Category and priority suggestions are keyword-based, not a trained AI model.</small>
+</footer>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+const SUPABASE_URL = "https://gaqmagqrfcrknbpaimrm.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_aOwjVCPeStqtYYmFZQA6PQ_KVvZU1kt";
+const PHOTO_BUCKET = "complaint-photos";
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const $ = id => document.getElementById(id);
+
+let currentLocation = null;
+let map = null;
+let markerLayer = null;
+let cachedComplaints = [];
+let refreshTimer = null;
+let currentLanguage = "en";
+
+const translations = {
+en:{
+navReport:"Report",navTrack:"Track",navMap:"Map",navAdmin:"Admin",
+heroText:"Report civic problems, track progress and help build cleaner, safer communities.",
+reportNow:"Report a Problem",trackNow:"Track Complaint",total:"Total Reports",
+pending:"Pending",progress:"In Progress",resolved:"Resolved",reportTitle:"📝 Report a Civic Issue",
+reportIntro:"Explain the issue. You can add a photo and your current location.",
+yourName:"Your Name",category:"Category",chooseCategory:"Choose a category",
+description:"Describe the Problem",photo:"Problem Photo (optional)",
+photoHelp:"JPEG, PNG or WebP. Maximum 5 MB.",getLocation:"📍 Get My Location",
+clearLocation:"Clear Location",submit:"Submit Complaint",trackTitle:"🔎 Track Your Complaint",
+trackIntro:"Enter your complaint ID to check its latest status.",complaintId:"Complaint ID",
+trackButton:"Track",mapTitle:"🗺️ Community Issue Map",
+mapIntro:"Map markers show the approximate location of reported issues that include coordinates.",
+adminTitle:"🔐 Admin Dashboard",adminIntro:"Sign in with your authorized administrator account.",
+email:"Admin Email",password:"Password",login:"Login",allReports:"All Complaints",
+refresh:"Refresh",logout:"Logout",filterStatus:"Filter by status",filterCategory:"Filter by category",
+search:"Search complaints",footer:"Student Project • Technology for Better Communities"
+},
+te:{
+navReport:"ఫిర్యాదు",navTrack:"స్థితి",navMap:"మ్యాప్",navAdmin:"అడ్మిన్",
+heroText:"పౌర సమస్యలను తెలియజేయండి, వాటి స్థితిని తెలుసుకోండి, మెరుగైన సమాజాన్ని నిర్మించండి.",
+reportNow:"సమస్యను నివేదించండి",trackNow:"ఫిర్యాదును ట్రాక్ చేయండి",total:"మొత్తం ఫిర్యాదులు",
+pending:"పెండింగ్",progress:"పనిలో ఉంది",resolved:"పరిష్కరించబడింది",reportTitle:"📝 పౌర సమస్యను నివేదించండి",
+reportIntro:"సమస్యను వివరించండి. ఫోటో మరియు ప్రస్తుత లొకేషన్ జోడించవచ్చు.",
+yourName:"మీ పేరు",category:"వర్గం",chooseCategory:"వర్గాన్ని ఎంచుకోండి",
+description:"సమస్య వివరాలు",photo:"సమస్య ఫోటో (ఐచ్ఛికం)",
+photoHelp:"JPEG, PNG లేదా WebP. గరిష్ఠంగా 5 MB.",getLocation:"📍 నా లొకేషన్ పొందండి",
+clearLocation:"లొకేషన్ తొలగించండి",submit:"ఫిర్యాదు సమర్పించండి",trackTitle:"🔎 ఫిర్యాదు స్థితి తెలుసుకోండి",
+trackIntro:"ఫిర్యాదు స్థితి తెలుసుకోవడానికి ID నమోదు చేయండి.",complaintId:"ఫిర్యాదు ID",
+trackButton:"ట్రాక్ చేయండి",mapTitle:"🗺️ సమస్యల మ్యాప్",
+mapIntro:"లొకేషన్ ఉన్న ఫిర్యాదులు మ్యాప్‌లో కనిపిస్తాయి.",
+adminTitle:"🔐 అడ్మిన్ డాష్‌బోర్డ్",adminIntro:"అధికారిక అడ్మిన్ ఖాతాతో లాగిన్ అవ్వండి.",
+email:"అడ్మిన్ ఇమెయిల్",password:"పాస్‌వర్డ్",login:"లాగిన్",allReports:"అన్ని ఫిర్యాదులు",
+refresh:"రిఫ్రెష్",logout:"లాగ్ అవుట్",filterStatus:"స్థితి ద్వారా ఫిల్టర్",filterCategory:"వర్గం ద్వారా ఫిల్టర్",
+search:"ఫిర్యాదులను వెతకండి",footer:"విద్యార్థి ప్రాజెక్ట్ • మెరుగైన సమాజం కోసం సాంకేతికత"
+}
+};
+
+function showMessage(element, text, type = "info") {
+    element.textContent = text;
+    element.className = "message show " + type;
+}
+
+function hideMessage(element) {
+    element.textContent = "";
+    element.className = "message";
+}
+
+function toast(text) {
+    const el = $("toast");
+    el.textContent = text;
+    el.style.display = "block";
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => el.style.display = "none", 4500);
+}
+
+function setBusy(button, busy, busyText = "Please wait...") {
+    if (busy) {
+        button.dataset.originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = busyText;
+    } else {
+        button.disabled = false;
+        if (button.dataset.originalText) button.textContent = button.dataset.originalText;
+    }
+}
+
+function escapeText(value) {
+    return String(value ?? "");
+}
+
+function generateComplaintId() {
+    return "CFAI-" + crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
+}
+
+function analyzeComplaint(description) {
+    const text = description.toLowerCase();
+    let category = "Other";
+    let priority = "Normal";
+
+    if (/pothole|road damage|broken road|damaged road|road hole|రోడ్డు|గుంత/.test(text)) category = "Road";
+    else if (/water leak|water supply|no water|dirty water|tap water|నీటి సమస్య|నీరు/.test(text)) category = "Water";
+    else if (/garbage|rubbish|waste|dustbin|trash|చెత్త/.test(text)) category = "Garbage";
+    else if (/streetlight|street light|light not working|dark street|వీధి దీపం/.test(text)) category = "Streetlight";
+    else if (/drainage|sewage|drain|overflow|blocked drain|మురుగు/.test(text)) category = "Drainage";
+
+    if (/dangerous|accident|open manhole|electric shock|live wire|flood|emergency|ప్రమాదం/.test(text)) {
+        priority = "High";
+    } else if (["Road", "Water", "Drainage"].includes(category)) {
+        priority = "Medium";
+    }
+
+    return {category, priority};
+}
+
+$("suggestBtn").addEventListener("click", () => {
+    const description = $("description").value.trim();
+    if (!description) {
+        $("aiSuggestion").textContent = "Please describe the problem first.";
+        return;
+    }
+    const analysis = analyzeComplaint(description);
+    $("category").value = analysis.category;
+    $("aiSuggestion").textContent =
+        "Suggested category: " + analysis.category +
+        " | Suggested priority: " + analysis.priority +
+        ". This is a keyword-based suggestion. Please verify it.";
+});
+
+$("locationBtn").addEventListener("click", () => {
+    if (!navigator.geolocation) {
+        toast("Geolocation is not supported by this browser.");
+        return;
+    }
+
+    $("locationBtn").disabled = true;
+    $("locationInfo").textContent = "Getting your location...";
+
+    navigator.geolocation.getCurrentPosition(position => {
+        currentLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        };
+        $("latitude").value = currentLocation.latitude;
+        $("longitude").value = currentLocation.longitude;
+        $("locationInfo").textContent =
+            "Location captured: " +
+            currentLocation.latitude.toFixed(5) + ", " +
+            currentLocation.longitude.toFixed(5);
+        $("locationBtn").disabled = false;
+    }, error => {
+        currentLocation = null;
+        $("locationInfo").textContent =
+            error.code === 1 ? "Location permission denied. You can submit without location." :
+            "Could not get location. You can submit without location.";
+        $("locationBtn").disabled = false;
+    }, {enableHighAccuracy: true, timeout: 12000, maximumAge: 60000});
+});
+
+$("clearLocationBtn").addEventListener("click", () => {
+    currentLocation = null;
+    $("latitude").value = "";
+    $("longitude").value = "";
+    $("locationInfo").textContent = "Location not added.";
+});
+
+async function uploadPhoto(file, complaintId) {
+    if (!file) return null;
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+        throw new Error("Use a JPEG, PNG or WebP image.");
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+        throw new Error("Photo must be 5 MB or smaller.");
+    }
+
+    const extension = file.type === "image/jpeg" ? "jpg" :
+        file.type === "image/png" ? "png" : "webp";
+    const path = complaintId + "/" + crypto.randomUUID() + "." + extension;
+
+    const {data, error} = await db.storage.from(PHOTO_BUCKET).upload(path, file, {
+        contentType: file.type,
+        upsert: false
+    });
+
+    if (error) throw new Error("Photo upload failed: " + error.message);
+    return data.path;
+}
+
+$("complaintForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = $("submitBtn");
+    hideMessage($("reportMessage"));
+
+    const name = $("name").value.trim();
+    const category = $("category").value;
+    const description = $("description").value.trim();
+    const file = $("photo").files[0] || null;
+
+    if (!name || !category || !description) {
+        showMessage($("reportMessage"), "Please complete all required fields.", "error");
+        return;
+    }
+    if (name.length > 100 || description.length > 2000) {
+        showMessage($("reportMessage"), "Please shorten your name or description.", "error");
+        return;
+    }
+    if (file && (!ALLOWED_PHOTO_TYPES.includes(file.type) || file.size > MAX_PHOTO_BYTES)) {
+        showMessage($("reportMessage"), "Photo must be JPEG, PNG or WebP and 5 MB or smaller.", "error");
+        return;
+    }
+
+    setBusy(button, true, "Submitting...");
+    let uploadedPhotoPath = null;
+
+    try {
+        const complaintId = generateComplaintId();
+        const analysis = analyzeComplaint(description);
+
+        if (file) uploadedPhotoPath = await uploadPhoto(file, complaintId);
+
+        const complaint = {
+            complaint_id: complaintId,
+            name,
+            category,
+            description,
+            status: "Pending",
+            priority: analysis.priority
+        };
+
+        if (currentLocation) {
+            complaint.latitude = currentLocation.latitude;
+            complaint.longitude = currentLocation.longitude;
+        }
+        if (uploadedPhotoPath) complaint.photo_path = uploadedPhotoPath;
+
+        const {error} = await db.from("complaints").insert([complaint]);
+
+        if (error) {
+            console.error(error);
+            if (uploadedPhotoPath) {
+                await db.storage.from(PHOTO_BUCKET).remove([uploadedPhotoPath]);
+            }
+            showMessage($("reportMessage"),
+                "Submission failed: " + error.message +
+                ". Check that the required database columns and policies are configured.", "error");
+            return;
+        }
+
+        showMessage($("reportMessage"),
+            "Complaint submitted successfully! Save your Complaint ID: " + complaintId,
+            "ok");
+        $("trackId").value = complaintId;
+        $("complaintForm").reset();
+        currentLocation = null;
+        $("locationInfo").textContent = "Location not added.";
+        $("aiSuggestion").textContent = "";
+        await refreshPublicStats();
+        await loadMapComplaints();
+    } catch (error) {
+        console.error(error);
+        showMessage($("reportMessage"), error.message || "Connection error. Please try again.", "error");
+    } finally {
+        setBusy(button, false);
+    }
+});
+
+$("trackForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = $("trackBtn");
+    const id = $("trackId").value.trim();
+    setBusy(button, true, "Searching...");
+
+    try {
+        const {data, error} = await db
+            .from("complaints")
+            .select("complaint_id, category, status, priority, created_at")
+            .eq("complaint_id", id)
+            .maybeSingle();
+
+        if (error) {
+            showMessage($("trackResult"), "Tracking failed: " + error.message, "error");
+            return;
+        }
+        if (!data) {
+            showMessage($("trackResult"), "Complaint not found. Check the ID and try again.", "error");
+            return;
+        }
+
+        const output = document.createElement("div");
+        const title = document.createElement("h3");
+        title.textContent = data.complaint_id;
+        const category = document.createElement("p");
+        category.textContent = "Category: " + data.category;
+        const status = document.createElement("p");
+        status.textContent = "Current status: " + data.status;
+        const priority = document.createElement("p");
+        priority.textContent = "Priority: " + (data.priority || "Normal");
+        const date = document.createElement("p");
+        date.textContent = "Submitted: " + new Date(data.created_at).toLocaleString();
+        output.append(title, category, status, priority, date);
+
+        const target = $("trackResult");
+        target.replaceChildren(output);
+        target.className = "message show ok";
+    } catch (error) {
+        showMessage($("trackResult"), "Could not track complaint: " + error.message, "error");
+    } finally {
+        setBusy(button, false);
+    }
+});
+
+function initializeMap() {
+    if (map) return;
+    map = L.map("map").setView([20.5937, 78.9629], 5);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+}
+
+async function loadMapComplaints() {
+    initializeMap();
+    markerLayer.clearLayers();
+
+    const {data, error} = await db.from("complaints")
+        .select("complaint_id, category, status, latitude, longitude")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .limit(500);
+
+    if (error) {
+        console.error("Map query:", error);
+        showMessage($("mapMessage"),
+            "Map locations are not available yet. Check database columns and public read policy.", "error");
+        return;
+    }
+
+    const points = [];
+    data.forEach(item => {
+        if (!Number.isFinite(Number(item.latitude)) || !Number.isFinite(Number(item.longitude))) return;
+        const marker = L.marker([Number(item.latitude), Number(item.longitude)]);
+        const popup = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = item.complaint_id;
+        const line1 = document.createElement("p");
+        line1.textContent = "Category: " + item.category;
+        const line2 = document.createElement("p");
+        line2.textContent = "Status: " + item.status;
+        popup.append(title, line1, line2);
+        marker.bindPopup(popup);
+        marker.addTo(markerLayer);
+        points.push([Number(item.latitude), Number(item.longitude)]);
+    });
+
+    if (points.length) {
+        map.fitBounds(points, {padding: [25, 25], maxZoom: 13});
+        showMessage($("mapMessage"), "Mapped locations: " + points.length, "ok");
+    } else {
+        showMessage($("mapMessage"), "No complaints with shared locations are available on the map yet.", "info");
+    }
+    setTimeout(() => map.invalidateSize(), 100);
+}
+
+async function refreshPublicStats() {
+    const {data, error} = await db.from("complaints")
+        .select("status")
+        .limit(5000);
+
+    if (error) {
+        console.error("Public stats:", error);
+        ["totalCount", "pendingCount", "progressCount", "resolvedCount"].forEach(id => $(id).textContent = "—");
+        return;
+    }
+
+    $("totalCount").textContent = data.length;
+    $("pendingCount").textContent = data.filter(c => c.status === "Pending").length;
+    $("progressCount").textContent = data.filter(c => c.status === "In Progress").length;
+    $("resolvedCount").textContent = data.filter(c => c.status === "Resolved").length;
+}
+
+async function verifyAdmin() {
+    const {data, error} = await db.rpc("is_civicfix_admin");
+    if (error) throw new Error("Admin verification failed: " + error.message);
+    if (data !== true) throw new Error("This account is not authorized as a CivicFixAI admin.");
+}
+
+$("loginForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = $("loginBtn");
+    setBusy(button, true, "Checking...");
+    hideMessage($("loginMessage"));
+
+    try {
+        const email = $("email").value.trim();
+        const password = $("password").value;
+        const {error} = await db.auth.signInWithPassword({email, password});
+        if (error) throw new Error(error.message);
+
+        await verifyAdmin();
+        showMessage($("loginMessage"), "Admin login successful.", "ok");
+        $("dashboard").classList.remove("hidden");
+        await loadAdminComplaints();
+        $("dashboard").scrollIntoView({behavior: "smooth", block: "start"});
+    } catch (error) {
+        console.error(error);
+        await db.auth.signOut();
+        showMessage($("loginMessage"), error.message || "Login failed.", "error");
+        $("dashboard").classList.add("hidden");
+    } finally {
+        setBusy(button, false);
+    }
+});
+
+async function loadAdminComplaints() {
+    hideMessage($("dashboardMessage"));
+    $("complaintsList").replaceChildren();
+    showMessage($("dashboardMessage"), "Loading complaints...", "info");
+
+    try {
+        await verifyAdmin();
+
+        const {data, error} = await db.from("complaints")
+            .select("*")
+            .order("created_at", {ascending: false})
+            .limit(1000);
+
+        if (error) throw new Error(error.message);
+        cachedComplaints = data || [];
+        renderAdminComplaints();
+        showMessage($("dashboardMessage"), "Loaded " + cachedComplaints.length + " complaints.", "ok");
+    } catch (error) {
+        console.error(error);
+        showMessage($("dashboardMessage"), "Could not load complaints: " + error.message, "error");
+    }
+}
+
+function renderAdminComplaints() {
+    const list = $("complaintsList");
+    list.replaceChildren();
+
+    const statusFilter = $("filterStatus").value;
+    const categoryFilter = $("filterCategory").value;
+    const query = $("searchBox").value.trim().toLowerCase();
+
+    const filtered = cachedComplaints.filter(c => {
+        const matchesStatus = !statusFilter || c.status === statusFilter;
+        const matchesCategory = !categoryFilter || c.category === categoryFilter;
+        const haystack = [c.complaint_id, c.name, c.category, c.description].join(" ").toLowerCase();
+        return matchesStatus && matchesCategory && haystack.includes(query);
+    });
+
+    if (!filtered.length) {
+        list.textContent = "No matching complaints.";
+        return;
+    }
+
+    filtered.forEach(c => {
+        const item = document.createElement("article");
+        item.className = "issue";
+
+        const title = document.createElement("h3");
+        title.textContent = c.complaint_id;
+
+        const badges = document.createElement("div");
+        const statusBadge = document.createElement("span");
+        statusBadge.className = "badge " + (c.status === "Resolved" ? "resolved" : "");
+        statusBadge.textContent = c.status;
+        const priorityBadge = document.createElement("span");
+        priorityBadge.className = "badge " + ((c.priority || "Normal") === "High" ? "high" : (c.priority === "Medium" ? "medium" : ""));
+        priorityBadge.textContent = "Priority: " + (c.priority || "Normal");
+        badges.append(statusBadge, document.createTextNode(" "), priorityBadge);
+
+        const details = document.createElement("p");
+        details.textContent = "Name: " + c.name + " | Category: " + c.category;
+
+        const description = document.createElement("p");
+        description.textContent = c.description;
+
+        const date = document.createElement("p");
+        date.className = "muted";
+        date.textContent = "Submitted: " + new Date(c.created_at).toLocaleString();
+
+        item.append(title, badges, details, description, date);
+
+        if (c.photo_path) {
+            const photoStatus = document.createElement("p");
+            photoStatus.textContent = "Photo attached.";
+            const photoButton = document.createElement("button");
+            photoButton.className = "secondary";
+            photoButton.textContent = "View Photo";
+            photoButton.addEventListener("click", async () => {
+                try {
+                    const {data, error} = await db.storage.from(PHOTO_BUCKET).createSignedUrl(c.photo_path, 60);
+                    if (error) throw error;
+                    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                } catch (error) {
+                    toast("Unable to open photo: " + error.message);
+                }
+            });
+            item.append(photoStatus, photoButton);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "issue-actions";
+
+        const select = document.createElement("select");
+        ["Pending", "In Progress", "Resolved"].forEach(status => {
+            const option = document.createElement("option");
+            option.value = status;
+            option.textContent = status;
+            select.appendChild(option);
+        });
+        select.value = c.status;
+
+        const save = document.createElement("button");
+        save.textContent = "Save Status";
+        save.addEventListener("click", async () => {
+            setBusy(save, true, "Saving...");
+            try {
+                await verifyAdmin();
+                const {error} = await db.from("complaints")
+                    .update({status: select.value})
+                    .eq("id", c.id);
+                if (error) throw new Error(error.message);
+                c.status = select.value;
+                renderAdminComplaints();
+                await refreshPublicStats();
+                showMessage($("dashboardMessage"), "Status updated successfully.", "ok");
+                toast("Complaint status updated.");
+            } catch (error) {
+                showMessage($("dashboardMessage"), "Update failed: " + error.message, "error");
+            } finally {
+                setBusy(save, false);
+            }
+        });
+
+        actions.append(select, save);
+        item.appendChild(actions);
+        list.appendChild(item);
+    });
+}
+
+$("refreshBtn").addEventListener("click", loadAdminComplaints);
+$("filterStatus").addEventListener("change", renderAdminComplaints);
+$("filterCategory").addEventListener("change", renderAdminComplaints);
+$("searchBox").addEventListener("input", renderAdminComplaints);
+
+$("logoutBtn").addEventListener("click", async () => {
+    const {error} = await db.auth.signOut();
+    if (error) {
+        toast("Logout failed: " + error.message);
+        return;
+    }
+    $("dashboard").classList.add("hidden");
+    $("loginForm").reset();
+    $("complaintsList").replaceChildren();
+    cachedComplaints = [];
+    showMessage($("loginMessage"), "Logged out successfully.", "ok");
+});
+
+async function applyLanguage(language) {
+    currentLanguage = language;
+    document.documentElement.lang = language === "te" ? "te" : "en";
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.dataset.i18n;
+        if (translations[language][key]) el.textContent = translations[language][key];
+    });
+}
+
+$("language").addEventListener("change", event => applyLanguage(event.target.value));
+
+async function initializeApp() {
+    initializeMap();
+    await refreshPublicStats();
+    await loadMapComplaints();
+
+    try {
+        const {data} = await db.auth.getSession();
+        if (data && data.session) {
+            const {data: isAdmin, error} = await db.rpc("is_civicfix_admin");
+            if (!error && isAdmin === true) {
+                $("dashboard").classList.remove("hidden");
+                showMessage($("loginMessage"), "Admin session restored.", "ok");
+                await loadAdminComplaints();
+            }
+        }
+    } catch (error) {
+        console.error("Session initialization:", error);
+    }
+
+    try {
+        const channel = db.channel("civicfix-public-updates")
+            .on("postgres_changes", {
+                event: "*",
+                schema: "public",
+                table: "complaints"
+            }, async () => {
+                await refreshPublicStats();
+                await loadMapComplaints();
+                if (!$("dashboard").classList.contains("hidden")) {
+                    await loadAdminComplaints();
+                }
+            })
+            .subscribe();
+
+        window.addEventListener("beforeunload", () => {
+            db.removeChannel(channel);
+        });
+    } catch (error) {
+        console.error("Realtime setup:", error);
+    }
+}
+
+initializeApp();
+</script>
+</body>
+</html>
